@@ -5,7 +5,7 @@
    ============================================================ */
 (function(){
   /* ====== À RÉGLER : adresse de ton site KykyPay ====== */
-  var KYKYPAY_URL = "kykypay.html";
+  var KYKYPAY_URL = "kykypay.vercel.app";
 
   var ROOT = "kykypay";
   var firebaseConfig = {
