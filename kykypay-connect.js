@@ -1,11 +1,14 @@
 /* ============================================================
-   KykyWorld × KykyPay — connexion avec un compte KykyPay
+   KykyWorld × KykyPay
+   - connexion avec un compte KykyPay + solde en haut à droite
+   - onglet « Annonces » (rédigées par l'admin KykyPay)
+   - onglet « Télécharger » : versions PC et mobile (grisées)
    À ajouter juste avant </body> de la page KykyWorld :
    <script src="kykypay-connect.js"></script>
    ============================================================ */
 (function(){
   /* ====== À RÉGLER : adresse de ton site KykyPay ====== */
-  var KYKYPAY_URL = "kykypay.vercel.app";
+  var KYKYPAY_URL = "kykypay.html";
 
   var ROOT = "kykypay";
   var firebaseConfig = {
@@ -40,13 +43,116 @@
     ".kp-go{width:100%;background:var(--pri,#8b5cf6);color:#fff;border:0;border-radius:12px;padding:.8rem;font:700 1rem Oxanium,sans-serif;cursor:pointer}",
     ".kp-go:disabled{opacity:.55;cursor:wait}",
     ".kp-cancel{width:100%;margin-top:.5rem;background:none;border:0;color:var(--mut,#a99bc7);padding:.5rem;cursor:pointer;font:inherit}",
-    ".kp-err{color:#ff8b9b;font-size:.9rem;min-height:1.3rem;margin-bottom:.4rem}"
+    ".kp-err{color:#ff8b9b;font-size:.9rem;min-height:1.3rem;margin-bottom:.4rem}",
+    /* annonces */
+    ".ann-list{display:grid;gap:1.2rem}",
+    ".ann{padding:1.5rem;border:1px solid var(--line,#2d1b4e);border-radius:14px;background:var(--surf,#150c26)}",
+    ".ann.first{background:linear-gradient(120deg,#2a1255,var(--surf,#150c26));border-color:#4b2a8a}",
+    ".ann-meta{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem;margin-bottom:.6rem;font-size:.9rem;color:var(--mut,#a99bc7)}",
+    ".ann-tag{background:var(--pri,#8b5cf6);color:#fff;border-radius:999px;padding:.15rem .8rem;font:600 .8rem Oxanium,sans-serif}",
+    ".ann h3{font:800 1.4rem Oxanium,sans-serif;margin:0 0 .5rem;color:#fff}",
+    ".ann p{margin:0;color:var(--mut,#a99bc7);white-space:pre-line}",
+    ".ann-empty{text-align:center;color:var(--mut,#a99bc7);padding:2.5rem 1rem;border:1px dashed var(--line,#2d1b4e);border-radius:14px}",
+    /* téléchargement */
+    ".dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1.2rem;max-width:40rem;margin:0 auto}",
+    ".dl-card{padding:1.8rem 1.2rem;border:1px solid var(--line,#2d1b4e);border-radius:14px;background:var(--surf,#150c26)}",
+    ".dl-card h3{font:800 1.3rem Oxanium,sans-serif;margin:0 0 1.2rem;color:var(--pri2,#c4b5fd)}",
+    ".dl-card .cta{width:100%}",
+    ".dl .cta[disabled].kp-dl{font-size:1.05rem;padding:.9rem 1rem}"
   ].join("");
   var st = document.createElement("style");
   st.textContent = css;
   document.head.appendChild(st);
 
-  /* ---------- Interface ---------- */
+  function $(id){ return document.getElementById(id); }
+
+  /* ---------- Onglet « Télécharger » : PC + mobile (grisés) ---------- */
+  var dl = $("telecharger");
+  if (dl){
+    dl.innerHTML =
+      '<h2>Télécharger</h2>' +
+      '<div class="dl-grid">' +
+        '<div class="dl-card"><h3>Version PC</h3><button class="cta kp-dl" disabled aria-disabled="true">Télécharger pour PC</button></div>' +
+        '<div class="dl-card"><h3>Version mobile</h3><button class="cta kp-dl" disabled aria-disabled="true">Télécharger pour mobile</button></div>' +
+      '</div>' +
+      '<p>Les téléchargements ne sont pas encore disponibles. Ils ouvriront au lancement de la bêta, le 1er janvier 2027 à 21 h.</p>';
+  }
+
+  /* ---------- Onglet « Annonces » ---------- */
+  var annList = null;
+  (function addAnnoncesTab(){
+    var tabsBox = document.querySelector(".tabs");
+    var main = document.querySelector("main");
+    var dlTabBtn = tabsBox && tabsBox.querySelector('[data-t="telecharger"]');
+    if (!tabsBox || !main || !dl) return;
+
+    var btn = document.createElement("button");
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("data-t", "annonces");
+    btn.setAttribute("aria-selected", "false");
+    btn.textContent = "Annonces";
+    tabsBox.insertBefore(btn, dlTabBtn);
+
+    var sec = document.createElement("section");
+    sec.id = "annonces";
+    sec.hidden = true;
+    sec.innerHTML = '<h2>Annonces</h2><div class="ann-list" id="annList"><div class="ann-empty">Chargement des annonces…</div></div>';
+    main.insertBefore(sec, dl);
+    annList = $("annList");
+
+    try{
+      names.push("annonces");   // liste des onglets de la page
+      tabs.push(btn);           // pour la mise en surbrillance
+      btn.onclick = function(){ go("annonces"); };
+      show(location.hash.slice(1));
+    }catch(e){ /* la page n'expose pas names/tabs : onglet ajouté mais non navigable */ }
+  })();
+
+  function renderAnnonces(items){
+    if (!annList) return;
+    annList.innerHTML = "";
+    if (!items.length){
+      var empty = document.createElement("div");
+      empty.className = "ann-empty";
+      empty.textContent = "Aucune annonce pour le moment. Revenez bientôt !";
+      annList.appendChild(empty);
+      return;
+    }
+    items.forEach(function(a, i){
+      var card = document.createElement("article");
+      card.className = "ann" + (i === 0 ? " first" : "");
+      var meta = document.createElement("div");
+      meta.className = "ann-meta";
+      if (a.tag){
+        var tag = document.createElement("span");
+        tag.className = "ann-tag";
+        tag.textContent = a.tag;
+        meta.appendChild(tag);
+      }
+      var time = document.createElement("time");
+      time.textContent = new Date(a.date).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"});
+      meta.appendChild(time);
+      var h = document.createElement("h3");
+      h.textContent = a.title || "";
+      var p = document.createElement("p");
+      p.textContent = a.body || "";
+      card.appendChild(meta); card.appendChild(h); card.appendChild(p);
+      annList.appendChild(card);
+    });
+  }
+
+  function listenAnnonces(db){
+    db.ref(ROOT + "/announcements").orderByChild("date").limitToLast(30).on("value", function(snap){
+      var items = [];
+      snap.forEach(function(c){ items.push(c.val()); });
+      items.sort(function(x, y){ return y.date - x.date; });
+      renderAnnonces(items);
+    }, function(){
+      if (annList) annList.innerHTML = '<div class="ann-empty">Impossible de charger les annonces pour le moment.</div>';
+    });
+  }
+
+  /* ---------- Connexion KykyPay (bouton + modale) ---------- */
   var slot = document.createElement("div");
   slot.className = "kp-slot";
   slot.innerHTML = '<button type="button" class="kp-btn" id="kpLogin">Connexion KykyPay</button>';
@@ -72,7 +178,6 @@
     '</div>';
   document.body.appendChild(ov);
 
-  function $(id){ return document.getElementById(id); }
   function openModal(){ $("kpErr").textContent = ""; ov.classList.add("open"); setTimeout(function(){ $("kpEmail").focus(); }, 30); }
   function closeModal(){ ov.classList.remove("open"); }
   $("kpLogin").addEventListener("click", openModal);
@@ -83,7 +188,6 @@
   function fmt(n){
     return new Intl.NumberFormat("fr-FR", {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(Number(n) || 0) + " K";
   }
-
   function showLoggedOut(){
     slot.innerHTML = '<button type="button" class="kp-btn" id="kpLogin">Connexion KykyPay</button>';
     $("kpLogin").addEventListener("click", openModal);
@@ -111,15 +215,18 @@
     .then(function(){ return loadScript(base + "firebase-auth-compat.js"); })
     .then(function(){ return loadScript(base + "firebase-database-compat.js"); })
     .then(start)
-    .catch(function(){ /* hors ligne : le bouton reste, la connexion affichera une erreur */
+    .catch(function(){
       $("kpGo").disabled = true;
       $("kpErr").textContent = "Impossible de charger la connexion. Recharge la page.";
+      if (annList) annList.innerHTML = '<div class="ann-empty">Impossible de charger les annonces pour le moment.</div>';
     });
 
   function start(){
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     var auth = firebase.auth(), db = firebase.database();
     var balRef = null;
+
+    listenAnnonces(db);
 
     var errors = {
       "auth/invalid-email": "Adresse email invalide.",
@@ -148,8 +255,8 @@
         var p = snap.val();
         if (!p || p.disabled){
           auth.signOut();
-          if (p && p.disabled){ openModal(); $("kpErr").textContent = "Ce compte a été suspendu par un administrateur."; }
-          else { openModal(); $("kpErr").textContent = "Ce compte n’est pas un compte KykyPay."; }
+          openModal();
+          $("kpErr").textContent = (p && p.disabled) ? "Ce compte a été suspendu par un administrateur." : "Ce compte n’est pas un compte KykyPay.";
           return;
         }
         showLoggedIn();
