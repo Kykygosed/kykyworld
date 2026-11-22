@@ -97,7 +97,7 @@ tabs.forEach(b=>b.onclick=()=>go(b.dataset.t));
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
 addEventListener("hashchange",()=>show(location.hash.slice(1)));
 show(location.hash.slice(1));
-const target=Date.UTC(2027,20,4,20,0,0); // 21 h, heure de Paris (UTC+1)
+const target = Date.UTC(2027, 3, 20, 19, 0, 0); // 21 h, heure de Paris (UTC+2)
 const p=n=>String(n).padStart(2,"0");
 function tick(){let t=Math.max(0,target-Date.now())/1000|0;
 d.textContent=p(t/86400|0);h.textContent=p(t%86400/3600|0);m.textContent=p(t%3600/60|0);s.textContent=p(t%60);}
